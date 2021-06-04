@@ -53,6 +53,7 @@ class UTPPacket(BaseModel):
     seq_nr: int  # 16
     ack_nr: int  # 16
     extensions: List[Extension] = Field(default_factory=list)
+    payload: bytes = Field(b"")
 
     @classmethod
     def from_bytes(cls, data: bytes) -> "UTPPacket":
@@ -77,6 +78,7 @@ class UTPPacket(BaseModel):
                 extensions.append(extension)
                 if not extension.extension_flag:
                     break
+        payload = reader.read()
         return cls(type=type_,
                    ver=ver,
                    extension_flag=extension_flag,
@@ -86,7 +88,8 @@ class UTPPacket(BaseModel):
                    wnd_size=wnd_size,
                    seq_nr=seq_nr,
                    ack_nr=ack_nr,
-                   extensions=extensions)
+                   extensions=extensions,
+                   payload=payload)
 
     def to_bytes(self):
         writer = BytesIO()
@@ -100,6 +103,7 @@ class UTPPacket(BaseModel):
         writer.write(self.ack_nr.to_bytes(2, "big"))
         for extension in self.extensions:
             writer.write(extension.to_bytes())
+        writer.write(self.payload)
         return writer.getvalue()
 
 
@@ -111,14 +115,14 @@ class BaseUTPProtocol(asyncio.DatagramProtocol):
         self._buffer: DefaultDict[IP, asyncio.Queue] = defaultdict(
             lambda: asyncio.Queue(self.buffer_size))  # todo 需要修改 改成流？
         self._close_waiter = self._loop.create_future()
-        self.transport = None
+        self.transport: DatagramTransport = None  # type: ignore
 
     def datagram_received(self, data: bytes, addr: IP) -> None:
         """分包"""
         packet = UTPPacket.from_bytes(data)
         self._buffer[addr].put_nowait(packet)
 
-    def connection_made(self, transport: DatagramTransport) -> None:
+    def connection_made(self, transport: DatagramTransport) -> None:  # type: ignore
         self.transport = transport
 
     def connection_lost(self, exc: Optional[Exception]) -> None:
@@ -146,6 +150,7 @@ class BaseUTPProtocol(asyncio.DatagramProtocol):
             if pkt.connection_id == connection_id:
                 return pkt
             await self._buffer[addr].put(pkt)
+            await asyncio.sleep(0)  # no blocking
 
     async def send_packet(self,
                           addr: IP,
@@ -158,7 +163,7 @@ class BaseUTPProtocol(asyncio.DatagramProtocol):
                           wnd_size: int,
                           seq_nr: int,
                           ack_nr: int,
-                          extensions=None):
+                          extensions: List[Extension] = None):
         msg = UTPPacket(type=type,
                         ver=ver,
                         extension_flag=extension_flag,

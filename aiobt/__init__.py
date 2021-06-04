@@ -9,3 +9,5 @@ from aiobt.connection import DHTConnection
 # https://cnodejs.org/topic/57b5300de8db280a7c86515d
 # https://www.jianshu.com/p/f1659aba5aed
 # https://github.com/synodriver/simDownloader
+# http://blog.chinaunix.net/uid-24399976-id-3060019.html
+# http://blog.chinaunix.net/uid-14408083-id-2814554.html
