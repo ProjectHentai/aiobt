@@ -143,6 +143,10 @@ class BaseUTPProtocol(asyncio.DatagramProtocol):
     def closed(self):
         return self._close_waiter.done()
 
+    def delete_channel(self, addr: IP):
+        """收到fin和reset时候删除流"""
+        del self._buffer[addr]
+
     async def search_buffer(self, addr: IP, connection_id: int) -> "UTPPacket":
         """从buffer查找属于自己这个connection的包"""
         while True:
