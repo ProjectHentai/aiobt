@@ -18,17 +18,17 @@ class UTPType(IntEnum):
     ST_SYN = 4
 
 
-class Extension(BaseModel):
+class UTPExtension(BaseModel):
     extension_flag: int
     len: int
     payload: bytes = Field(b"")
 
     @classmethod
-    def from_bytes(cls, data: bytes) -> "Extension":
+    def from_bytes(cls, data: bytes) -> "UTPExtension":
         return cls.from_reader(BytesIO(data))
 
     @classmethod
-    def from_reader(cls, reader: BytesIO) -> "Extension":
+    def from_reader(cls, reader: BytesIO) -> "UTPExtension":
         extension_flag = int.from_bytes(reader.read(1), "big")
         len_ = int.from_bytes(reader.read(1), "big")
         payload: bytes = reader.read(len_)
@@ -52,7 +52,7 @@ class UTPPacket(BaseModel):
     wnd_size: int  # 32
     seq_nr: int  # 16
     ack_nr: int  # 16
-    extensions: List[Extension] = Field(default_factory=list)
+    extensions: List[UTPExtension] = Field(default_factory=list)
     payload: bytes = Field(b"")
 
     @classmethod
@@ -74,7 +74,7 @@ class UTPPacket(BaseModel):
         extensions = []
         if extension_flag:
             while True:
-                extension = Extension.from_reader(reader)
+                extension = UTPExtension.from_reader(reader)
                 extensions.append(extension)
                 if not extension.extension_flag:
                     break
@@ -144,7 +144,7 @@ class BaseUTPProtocol(asyncio.DatagramProtocol):
         return self._close_waiter.done()
 
     def delete_channel(self, addr: IP):
-        """收到fin和reset时候删除流"""
+        """fin reset"""
         del self._buffer[addr]
 
     async def search_buffer(self, addr: IP, connection_id: int) -> "UTPPacket":
@@ -167,7 +167,7 @@ class BaseUTPProtocol(asyncio.DatagramProtocol):
                           wnd_size: int,
                           seq_nr: int,
                           ack_nr: int,
-                          extensions: List[Extension] = None):
+                          extensions: List[UTPExtension] = None):
         msg = UTPPacket(type=type,
                         ver=ver,
                         extension_flag=extension_flag,
