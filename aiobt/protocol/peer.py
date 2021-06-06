@@ -37,6 +37,48 @@ class PeerMessage(BaseModel):
     def not_interested(cls) -> "PeerMessage":
         return cls(length=1, message_id=3)
 
+    @classmethod
+    def have(cls, payload: int) -> "PeerMessage":
+        return cls(length=5, message_id=4, payload=payload.to_bytes(4, "big"))
+
+    @classmethod
+    def bitfield(cls, payload: bytes) -> "PeerMessage":
+        """
+        'bitfield' is only ever sent as the first message.
+        Its payload is a bitfield with each index that downloader has sent set to one and the rest set to zero.
+         Downloaders which don't have anything yet may skip the 'bitfield' message.
+         The first byte of the bitfield corresponds to indices 0 - 7 from high bit to low bit, respectively.
+         The next one 8-15, etc. Spare bits at the end are set to zero.
+        :param payload:
+        :return:
+        """
+        return cls(length=1 + len(payload), message_id=5, payload=payload)
+
+    @classmethod
+    def request(cls, index: int, begin: int, length: int) -> "PeerMessage":
+        """
+        :param index: 整数，指定从零开始的piece索引。
+        :param begin: 整数，指定piece中从零开始的字节偏移。
+        :param length: 整数，指定请求的长度。
+        :return:
+        """
+        return cls(length=13, message_id=6,
+                   payload=index.to_bytes(4, "big") + begin.to_bytes(4, "big") + length.to_bytes(4, "big"))
+
+    @classmethod
+    def piece(cls, index: int, begin: int, piece: int) -> "PeerMessage":
+        return cls(length=13, message_id=7,
+                   payload=index.to_bytes(4, "big") + begin.to_bytes(4, "big") + piece.to_bytes(4, "big"))
+
+    @classmethod
+    def cancel(cls, index: int, begin: int, length: int) -> "PeerMessage":
+        return cls(length=13, message_id=8,
+                   payload=index.to_bytes(4, "big") + begin.to_bytes(4, "big") + length.to_bytes(4, "big"))
+
+    @classmethod
+    def extension(cls) -> "PeerMessage":
+        pass
+
 
 class PeerMessagePacket(BaseModel):
     messages: List[PeerMessage]
